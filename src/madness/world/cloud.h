@@ -150,8 +150,10 @@ public:
     void print_timings(World &universe) const {
         double rtime = double(reading_time);
         double wtime = double(writing_time);
+        double ptime = double(replication_time);
         universe.gop.sum(rtime);
         universe.gop.sum(wtime);
+        universe.gop.sum(ptime);
         long creads = long(cache_reads);
         long cstores = long(cache_stores);
         universe.gop.sum(creads);
@@ -160,6 +162,7 @@ public:
             auto precision = std::cout.precision();
             std::cout << std::fixed << std::setprecision(1);
             print("cloud storing cpu time", wtime * 0.001);
+            print("cloud replication cpu time", ptime * 0.001);
             print("cloud reading cpu time", rtime * 0.001, std::defaultfloat);
             std::cout << std::setprecision(precision) << std::scientific;
             print("cloud cache stores    ", long(cstores));
@@ -175,6 +178,7 @@ public:
     void clear_timings() {
         reading_time=0l;
         writing_time=0l;
+        replication_time=0l;
         cache_stores=0l;
         cache_reads=0l;
     }
@@ -206,6 +210,7 @@ public:
     void replicate() {
 
         World& world=container.get_world();
+        cloudtimer t(world,replication_time);
         container.reset_pmap_to_local();
 
         std::list<keyT> keylist;
@@ -253,6 +258,7 @@ private:
 
     mutable std::atomic<long> reading_time=0l;    // in ms
     mutable std::atomic<long> writing_time=0l;    // in ms
+    mutable std::atomic<long> replication_time=0l;    // in ms
     mutable std::atomic<long> cache_reads=0l;
     mutable std::atomic<long> cache_stores=0l;
 
