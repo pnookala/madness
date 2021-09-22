@@ -6,6 +6,10 @@
 
 */
 
+/**
+ * TODO:  - delete container record upon caching if container is replicated
+ *        - set read-only option upon replicating
+ */
 
 #ifndef SRC_MADNESS_WORLD_CLOUD_H_
 #define SRC_MADNESS_WORLD_CLOUD_H_
@@ -115,11 +119,12 @@ public:
 
     typedef std::any cached_objT;
     using keyT = madness::archive::ContainerRecordOutputArchive::keyT;
+    using valueT = std::vector<unsigned char>;
     typedef std::map<keyT, cached_objT> cacheT;
     typedef Recordlist<keyT> recordlistT;
 
 private:
-    madness::WorldContainer<keyT, std::vector<unsigned char> > container;
+    madness::WorldContainer<keyT, valueT> container;
     cacheT cached_objects;
     recordlistT local_list_of_container_keys;   // a world-local list of keys occupied in container
 
@@ -196,6 +201,52 @@ public:
         }
         if (dofence) world.gop.fence();
         return recordlist;
+    }
+
+    void replicate() {
+
+        World& world=container.get_world();
+        container.reset_pmap_to_local();
+
+        std::list<keyT> keylist;
+        for (auto it=container.begin(); it!=container.end(); ++it) {
+            keylist.push_back(it->first);
+        }
+
+        for (ProcessID rank=0; rank<world.size(); rank++) {
+            if (rank == world.rank()) {
+                std::size_t keylistsize = keylist.size();
+                world.mpi.Bcast(&keylistsize,sizeof(keylistsize),MPI_BYTE,rank);
+
+                for (auto key : keylist) {
+                    madness::WorldContainer<keyT, std::vector<unsigned char> >::const_accessor acc;
+                    bool found=container.find(acc,key);
+                    MADNESS_CHECK(found);
+                    auto data = acc->second;
+                    std::size_t sz=data.size();
+
+                    world.mpi.Bcast(&key,sizeof(key),MPI_BYTE,rank);
+                    world.mpi.Bcast(&sz,sizeof(sz),MPI_BYTE,rank);
+                    world.mpi.Bcast(&data[0],sz,MPI_BYTE,rank);
+
+                }
+            }
+            else {
+                std::size_t keylistsize;
+                world.mpi.Bcast(&keylistsize,sizeof(keylistsize),MPI_BYTE,rank);
+                for (size_t i=0; i<keylistsize; i++) {
+                    keyT key;
+                    world.mpi.Bcast(&key,sizeof(key),MPI_BYTE,rank);
+                    std::size_t sz;
+                    world.mpi.Bcast(&sz,sizeof(sz),MPI_BYTE,rank);
+                    valueT data(sz);
+                    world.mpi.Bcast(&data[0],sz,MPI_BYTE,rank);
+
+                    container.replace(key,data);
+                }
+            }
+        }
+        world.gop.fence();
     }
 
 private:
