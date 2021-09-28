@@ -10,6 +10,8 @@
 
 #include <cmath>
 #include <vector>
+#include <stdexcept>
+#include <exception>
 #include "polynomial.h"
 
 namespace slymer {
