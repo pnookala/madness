@@ -190,17 +190,17 @@ void test2(World& world, size_t nfunc, size_t k, double thresh) {
         world.gop.fence();
         double used_project = wall_time() - start;
         
-        start = wall_time();
-        std::vector<double> norms = norm2s(world, funcs);
-        double used_norms_project = wall_time() - start;
-        if (world.rank() == 0) print("norms after projection", norms);
-
+        //start = wall_time();
+        //std::vector<double> norms = norm2s(world, funcs);
+        //double used_norms_project = wall_time() - start;
+        //if (world.rank() == 0) print("norms after projection", norms);
+        
         start = wall_time();
         compress(world, funcs);
         double used_compress = wall_time() - start;
         
         start = wall_time();
-        norms = norm2s(world, funcs);
+        std::vector<double> norms = norm2s(world, funcs);
         double used_norms_compress = wall_time() - start;
         if (world.rank() == 0) print("norms after compress", norms);
         
@@ -208,10 +208,11 @@ void test2(World& world, size_t nfunc, size_t k, double thresh) {
         reconstruct(world, funcs);
         double used_reconstruct = wall_time() - start;
         
-        start = wall_time();
-        norms = norm2s(world, funcs);
-        double used_norms_reconstruct = wall_time() - start;
+        //start = wall_time();
+        //norms = norm2s(world, funcs);
+        //double used_norms_reconstruct = wall_time() - start;
         if (world.rank() == 0) print("norms after reconstruct", norms);
+        
         double used_total = wall_time() - start_total;
         
         if (world.rank() == 0) {
@@ -220,9 +221,9 @@ void test2(World& world, size_t nfunc, size_t k, double thresh) {
             print("     project : ", used_project);
             print("    compress : ", used_compress);
             print(" reconstruct : ", used_reconstruct);
-            print("      norm-1 : ", used_norms_project);
+            //print("      norm-1 : ", used_norms_project);
             print("      norm-2 : ", used_norms_compress);
-            print("      norm-3 : ", used_norms_reconstruct);
+            //print("      norm-3 : ", used_norms_reconstruct);
             print("       total : ", used_total);
         }
 
@@ -241,11 +242,15 @@ void test2(World& world, size_t nfunc, size_t k, double thresh) {
 int main(int argc, char** argv) {
     // Initialize the parallel programming environment
     initialize(argc,argv);
+    int num_fn = 1;
+    if (argc > 1) {
+      num_fn = std::atoi(argv[1]);
+    }
     // Extra scope to make sure world is destroyed before finalizing
     {
         World world(SafeMPI::COMM_WORLD);
         startup(world,argc,argv);
-        test2(world, 20, 10, 1e-8);
+        test2(world, num_fn, 10, 1e-8);
     }
     finalize();
     return 0;
